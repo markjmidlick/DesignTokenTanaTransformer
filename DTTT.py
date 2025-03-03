@@ -3,19 +3,17 @@ import json
 import re
 import plistlib
 import base64
-# Hide GitHub link and related badges
-st.markdown(
-    """
-    <style>
-    .css-1jc7ptx, .e1ewe7hr3, .viewerBadge_container__1QSob,
-    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137,
-    .viewerBadge_text__1JaDK {
-        display: none;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# Hide GitHub icon and main menu (try one or both)
+hide_css = """
+#GithubIcon {
+  visibility: hidden;
+}
+
+#MainMenu {
+  visibility: hidden;
+}
+"""
+st.markdown(hide_css, unsafe_allow_html=True)
 ##########################################
 # Helper functions for color conversions #
 ##########################################
