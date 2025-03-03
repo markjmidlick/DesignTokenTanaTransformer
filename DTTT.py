@@ -3,7 +3,19 @@ import json
 import re
 import plistlib
 import base64
-
+# Hide GitHub link and related badges
+st.markdown(
+    """
+    <style>
+    .css-1jc7ptx, .e1ewe7hr3, .viewerBadge_container__1QSob,
+    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137,
+    .viewerBadge_text__1JaDK {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 ##########################################
 # Helper functions for color conversions #
 ##########################################
@@ -165,24 +177,8 @@ def affinity_to_json(uploaded_file) -> str:
 def json_to_affinity(json_input: str) -> bytes:
     """
     Convert intermediate JSON tokens (assumed to be color tokens) into an Affinity .clr file.
-    This builds a minimal plist structure with a "$objects" list that alternates between
-    a placeholder name and a dictionary containing the NSRGB value (encoded as bytes).
-    
-    The structure will be:
-    
-    {
-      "$archiver": "NSKeyedArchiver",
-      "$version": 100000,
-      "$top": {"NSColors": 1},
-      "$objects": [
-         "$null",
-         "Color Name 1",
-         {"NSRGB": <bytes>},
-         "Color Name 2",
-         {"NSRGB": <bytes>},
-         ...
-      ]
-    }
+    Builds a minimal plist structure with a "$objects" list that alternates between a placeholder and
+    the token name and NSRGB dictionary.
     """
     try:
         data = json.loads(json_input)
@@ -194,7 +190,6 @@ def json_to_affinity(json_input: str) -> bytes:
     for name, token in data.items():
         if token.get("$type", "").lower() == "color":
             hex_val = token.get("$value", "")
-            # Convert hex to a space-separated string of floats and encode as bytes.
             rgb_str = hex_to_rgb_floats(hex_val)
             objects_list.append(name)
             objects_list.append({"NSRGB": rgb_str.encode("utf-8")})
@@ -273,7 +268,14 @@ def main():
             plist_bytes = json_to_affinity(source_data)
             if plist_bytes is not None:
                 b64 = base64.b64encode(plist_bytes).decode('utf-8')
-                output = f"Download your .clr file: <a href='data:application/octet-stream;base64,{b64}' download='export.clr'>Download .clr File</a>"
+                download_link = f"Download your .clr file: <a href='data:application/octet-stream;base64,{b64}' download='export.clr'>Download .clr File</a>"
+                # Also generate XML representation for display:
+                try:
+                    plist_dict = plistlib.loads(plist_bytes)
+                    xml_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_XML).decode('utf-8')
+                except Exception as e:
+                    xml_plist = f"Error converting to XML: {e}"
+                output = download_link + "\n\n" + "CLR File Contents (XML):\n" + xml_plist
         elif source_format == "Figma JSON" and target_format == "Adobe ASE":
             output = json_to_adobe(source_data)
         elif source_format == "Figma JSON" and target_format == "Figma JSON":
@@ -286,7 +288,13 @@ def main():
             plist_bytes = json_to_affinity(intermediate)
             if plist_bytes is not None:
                 b64 = base64.b64encode(plist_bytes).decode('utf-8')
-                output = f"Download your .clr file: <a href='data:application/octet-stream;base64,{b64}' download='export.clr'>Download .clr File</a>"
+                download_link = f"Download your .clr file: <a href='data:application/octet-stream;base64,{b64}' download='export.clr'>Download .clr File</a>"
+                try:
+                    plist_dict = plistlib.loads(plist_bytes)
+                    xml_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_XML).decode('utf-8')
+                except Exception as e:
+                    xml_plist = f"Error converting to XML: {e}"
+                output = download_link + "\n\n" + "CLR File Contents (XML):\n" + xml_plist
         elif source_format == "Tana Paste" and target_format == "Adobe ASE":
             output = "Conversion from Tana Paste to Adobe ASE not implemented yet."
         elif source_format == "Tana Paste" and target_format == "Tana Paste":
@@ -313,6 +321,7 @@ def main():
         else:
             output = "This conversion is not implemented yet."
         
+        # Display output
         if target_format in ["Affinity (.clr)", "Adobe ASE"] and "Download" in output:
             st.markdown(output, unsafe_allow_html=True)
         else:
